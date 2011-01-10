@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Panel title="目录设置" xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="450" height="350" 
+	   
+		 >
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<s:states>
+		<s:State name="State1"   />
+		<s:State name="State2"   />
+	</s:states>
+	
+	
+    <s:TextArea  id="contentTA" creationComplete="contentTA.text = this.contents"  width="100%" height="100%" />
+ 
+	
+	
+	<!--下一版本实现-->
+	<s:Scroller includeIn="State2" width="100%" height="100%" >
+
+		<s:VGroup>
+			<s:HGroup height="30" verticalAlign="middle"  width="100%">
+				<s:Button   label="添加章" />
+				<s:Button   label="添加节" />
+			</s:HGroup>
+	 
+			<mx:Tree id="myTree" labelField="@label"
+			 width="100%" height="100%" 
+			 editable="true"  
+			 itemEditor="ContentsEditor" 
+			 editorHeightOffset="5" 
+			 creationComplete="myTree.dataProvider=contents.node ; myTree.openItems = contents.node" 
+			 
+			 itemEditEnd="processData(event);"
+			 dragEnabled="true"
+			 dropEnabled="true"
+			 />
+		</s:VGroup>
+
+	</s:Scroller>
+	<s:Button top="-25" right="10" label="保存退出"  click="button1_clickHandler(event)"/>
+    
+	<fx:Script>
+		<![CDATA[
+			import flash.events.MouseEvent;
+			
+			import mx.events.DynamicEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			
+			 
+			private var contents:XML = new XML("<contents><node label='章：' page='1'><node label='节1' page='1'/><node label='节2' page='2'/><node label='节3' page='3'/></node><node label='章2：' page='1' ><node label='节1' page='1'/></node></contents>" )
+			
+                                   
+		
+			// Define the event listener for the itemEditEnd event 
+			// to copy the updated data back to the data provider 
+			// of the Tree control.
+			public function processData(event:ListEvent):void {    
+				
+				// Disable copying data back to the control.
+				event.preventDefault();
+				
+				// Get new phone number from editor.
+				var newlabel:String = ContentsEditor(event.currentTarget.itemEditorInstance).newLabel				
+				if(newlabel!= null && newlabel!="")myTree.editedItemRenderer.data.@label = newlabel
+					
+				// Get new status from editor.
+				var newpage:String = ContentsEditor(event.currentTarget.itemEditorInstance).newPage
+				if(newpage!=null && newpage!="")myTree.editedItemRenderer.data.@page =newpage
+				
+				
+	 
+				
+				// Close the cell editor.
+				myTree.destroyItemEditor(); 
+				
+				// Notify the list control to update its display.
+				myTree.dataProvider.notifyItemUpdate(myTree.editedItemRenderer);
+			}      
+			
+
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				var e:DynamicEvent = new DynamicEvent("saveAndExit")
+				e.contents = this.contents= new XML(contentTA.text)
+				this.dispatchEvent(e)
+				PopUpManager.removePopUp(this)
+			}
+
+		]]>
+	</fx:Script>
+</s:Panel>

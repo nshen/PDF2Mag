@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/halo"
+					   fontSize="14"
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)" 
+					   >
+	
+	<fx:Script>
+		<![CDATA[
+
+			
+			import mx.controls.Alert;
+			import mx.events.DynamicEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			private var process:NativeProcess
+			private var testStr:String=""  
+			
+			private var pdf:File = File.documentsDirectory;
+			private var outPutFolder:File = File.documentsDirectory;
+			private var assetsFolder:File
+			
+			//pageType  1硬质封面软质内页,2全软,3全硬
+			private var pageType:int = 1;
+			
+			private const START_BTN_LABEL:String = "重击一下开始转换!";
+			
+			[Bindable]
+			private var uiEnabled:Boolean =  true	
+			
+			//目录设置面板	
+			private var contentsPanel:ContentsPanel = new ContentsPanel()	
+			//contents
+			private var _contentsStr:String =""	
+			
+			 
+			private function checkUpdate():void {
+				setApplicationVersion();
+			}
+			private function setApplicationVersion():void {
+				var appXML:XML = NativeApplication.nativeApplication.applicationDescriptor;
+				var ns:Namespace = appXML.namespace();
+				vlabel.text = "当前版本:" + appXML.ns::version;
+			} 
+			 
+ 
+			
+			
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void
+			{ 				
+				if(!NativeProcess.isSupported)
+				{
+					Alert.show("NativeProcess not supported.");
+					return
+				}
+				checkUpdate()				
+				reset()			
+				contentsPanel.addEventListener("saveAndExit" , onContentChange)
+				
+			}
+			
+			
+			private function onContentChange(eo:DynamicEvent):void
+			{
+				this._contentsStr = eo.contents.toString()
+			}
+			
+			private function browsePDF():void{
+				
+				var filter:FileFilter =  new FileFilter("*.pdf","*.pdf")				
+				pdf.addEventListener(Event.SELECT, onBrowsePDF);
+				pdf.browseForOpen("Select your pdf file",  [filter] );
+			}
+			
+			private function browseOutputFodler():void
+			{
+				outPutFolder.addEventListener(Event.SELECT, onBrowseOutputFolder); 
+				outPutFolder.browseForDirectory("选择输出目录");
+			}
+			
+			private function onOutputData(eo:ProgressEvent):void
+			{   
+				
+				//TODO:转换进度显示				
+				//txt.appendText(testStr)
+				//txt.appendText("----------------\n") 
+				this.startBtn.label = process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable)
+				
+			}
+			
+			public function errorOutputDataHandler(event:ProgressEvent):void
+			{
+				//  var process:NativeProcess = event.target as NativeProcess;
+				Alert.show('error')				
+			}
+			
+			
+			
+			
+			private function onBrowsePDF(eo:Event):void {
+				
+				pdfPatch.text = pdf.nativePath; 			 
+			}
+			private function onBrowseOutputFolder(eo:Event):void
+			{
+				outputPatch.text = outPutFolder.nativePath
+				
+			}
+			
+			
+			private function startConvert():void
+			{
+				if(this.pdfPatch.text=="" || this.outputPatch.text=="")
+				{
+					Alert.show("还没配置好哦～",'错误')
+					return
+				} 
+				
+				//在输出文件夹下创建assets文件夹
+				this.assetsFolder = this.outPutFolder.resolvePath("assets")
+				this.assetsFolder.createDirectory()
+				
+				
+				this.uiEnabled =  false
+				
+				txt.appendText('转换开始，请等一会儿，pdf越复杂等的越久，相信我,没有死机.不要关闭弹出的dos窗口，那样会强制结束：）\n')
+				var file:File = File.applicationDirectory;
+				file = file.resolvePath("pdf2swf/pdf2swf.exe");
+				var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+				nativeProcessStartupInfo.executable = file;
+				//nativeProcessStartupInfo.workingDirectory = File.applicationDirectory;
+				
+				var args:Vector.<String> = new Vector.<String>;
+				args.push("-T9")
+				args.push("-s poly2bitmap")
+				//args.push("-s zoom=18")
+				
+				args.push(pdf.nativePath)
+				args.push( '-o')
+				args.push(this.outPutFolder.nativePath+'\\assets\\n%.swf')
+				
+				//args.push("-I")
+				//args.push("-q")
+				
+				nativeProcessStartupInfo.arguments =  args 
+				process = new NativeProcess();
+				process.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, onOutputData);
+				
+				process.addEventListener(Event.STANDARD_OUTPUT_CLOSE,onClose)
+				process.start(nativeProcessStartupInfo);
+			}
+			import flash.utils.setTimeout
+				private function onClose(eo:Event):void
+				{
+					
+					txt.appendText("转换结束！\n")
+					this.assetsFolder.addEventListener( FileListEvent.DIRECTORY_LISTING, onDirectoryListing );
+					this.assetsFolder.getDirectoryListingAsync();
+					
+					
+					
+				}
+				
+				private function onDirectoryListing(eo:FileListEvent):void
+				{
+					txt.appendText("开始写配置文件！\n")
+					//写xml文件
+					var xml:String = "<root >"+File.lineEnding;
+					xml += "<pageInfo width='"+this.ti_w.text+"' height='"+this.ti_h.text+"' type='"+this.pageType.toString() +"' />"+File.lineEnding;
+					
+					xml += "<cover source='assets/n1.swf' />" +File.lineEnding;
+					xml += "<backCover source='assets/n"+ eo.files.length+".swf' />" +File.lineEnding;
+					
+					var len:uint = eo.files.length 
+					for( var i:uint= 2 ;i<len ;i++)
+					{
+						xml+="<image source='assets/n"+i+".swf' />"+File.lineEnding
+					}
+					//奇数bug
+					if(len&1!=0)xml+="<image source='assets/n"+eo.files.length+".swf' />"+File.lineEnding
+					
+					
+					if(this._contentsStr!="")xml+= (this._contentsStr +File.lineEnding)
+					
+					xml+="</root>" ;
+					this.outPutFolder.cancel()
+					var file:File = this.outPutFolder.resolvePath("config.xml");
+					var fileStream:FileStream = new FileStream();
+					fileStream.open(file, FileMode.WRITE);
+					fileStream.writeUTFBytes(xml.toString());		
+					
+					
+					fileStream.close();  
+					txt.appendText("写配置文件成功！\n")
+					txt.appendText("复制文件！\n")
+					//复制mag
+					copyToOutFolder("mag\\index.html");
+					copyToOutFolder("mag\\Magazine.swf");
+					copyToOutFolder("mag\\playerProductInstall.swf");
+					copyToOutFolder("mag\\swfobject.js");
+					txt.appendText("复制文件成功！\n")
+					txt.appendText("转换完成，请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
+					this.reset() 
+				}
+				
+				
+				private function copyToOutFolder(appFile:String):void
+				{
+					var originalF:File = File.applicationDirectory.resolvePath(appFile);
+					//trace(originalF.nativePath)
+					var copyF:File = this.outPutFolder.resolvePath(appFile.split("\\")[1].toString());
+					originalF.copyTo(copyF);
+				}
+				
+				
+				/**
+				 * 重置到开始状态
+				 */
+				private function reset():void
+				{
+					this.startBtn.label = START_BTN_LABEL
+					
+					this.pdfPatch.text = ""
+					this.outputPatch.text = ""
+					this.uiEnabled = true
+				}
+				
+				
+				
+				private function popContentsWindow():void
+				{
+					
+					//contentsPanel 
+					PopUpManager.addPopUp(contentsPanel,this,true);
+					PopUpManager.centerPopUp(contentsPanel);
+					
+				}
+				
+				
+				
+				
+				
+				
+		]]>
+	</fx:Script>
+	
+	
+	<fx:Style>
+		@namespace s "library://ns.adobe.com/flex/spark";
+		@namespace mx "library://ns.adobe.com/flex/halo";		
+		mx|ToolTip { 
+			fontSize: 14;
+		}
+	</fx:Style>
+	
+	
+	<fx:Declarations>
+		<s:RadioButtonGroup id="pageTypeGroup" enabled="{this.uiEnabled}" change="this.pageType = int(this.pageTypeGroup.selectedValue)" />
+	</fx:Declarations>
+	
+	
+	<s:layout>
+		<s:VerticalLayout paddingBottom="10" paddingLeft="10" paddingTop="10" paddingRight="10"  />
+	</s:layout>
+	<s:Label text="选取PDF文件:"/>
+	<s:HGroup width="100%">
+		<s:TextArea id="pdfPatch"  width="85%" height="30"  editable="false" selectable="false"/>
+		<s:Button  enabled="{this.uiEnabled}"  label="浏览" width="15%" height="30" click="browsePDF()" />
+	</s:HGroup>
+	<s:Label text="选取输出目录(空文件夹):"/>
+	<s:HGroup width="100%">
+		<s:TextArea id="outputPatch"  width="85%" height="30"  editable="false" selectable="false"/>
+		<s:Button enabled="{this.uiEnabled}"   label="浏览" width="15%" height="30" click="browseOutputFodler()" />
+	</s:HGroup>
+	<s:HGroup verticalAlign="middle">
+		<s:Label text="默认显示宽高(单页):" toolTip="请根据文件单页的宽高比例,和期望屏幕分辨率进行设定." /> 
+		<s:TextInput id="ti_w" enabled="{this.uiEnabled}" text="336" restrict="0-9" width="40"/>
+		<s:Label text="x" />
+		<s:TextInput id="ti_h" enabled="{this.uiEnabled}" text="456" restrict="0-9" width="40"/>
+	</s:HGroup>
+	<s:HGroup verticalAlign="middle">
+		<s:RadioButton label="硬质封面软质内页" value="1" group="{this.pageTypeGroup}" selected="true"/>
+		<s:RadioButton label="全软质" value="2" group="{this.pageTypeGroup}" />
+		<s:RadioButton label="全硬质" value="3" group="{this.pageTypeGroup}" />
+	</s:HGroup>
+	<s:Button label="添加目录" enabled="{this.uiEnabled}" click="popContentsWindow()"/>
+	<s:Button  id="startBtn" enabled="{this.uiEnabled}" width="100%" height="30" click="startConvert()" />
+	<s:TextArea  id="txt" width="100%" height="100%" />
+	<s:HGroup width="100%" >
+		<s:Label id="vlabel"  width="100%" />
+		<s:Label id="copyright" buttonMode="true" textAlign="right" text="Nshen.net" click="navigateToURL(new URLRequest('http://www.nshen.net'), '_blank');"    />
+	</s:HGroup>
+	
+	
+	
+</s:WindowedApplication>

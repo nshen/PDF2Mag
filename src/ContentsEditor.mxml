@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" verticalAlign="middle">
+	<fx:Script>
+		<![CDATA[
+		   
+			public var newLabel:String  ;
+			public var newPage:String  ;
+
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				labelTI.text = value.@label
+				pageTI.text = value.@page
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Label toolTip="用户看到的标题文字内容" text="显示文字:" />
+	<s:TextInput id="labelTI" width="150"  change="newLabel=labelTI.text" />
+	<s:Label toolTip="对应pdf文档的页数" text="链接到页数" />
+	<s:TextInput id="pageTI" width="40" restrict="0-9"   change="newPage=pageTI.text"  />
+	<s:Button label="add" />
+	<s:Button label="sub"/>
+</mx:HBox>
+ 
