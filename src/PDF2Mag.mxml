@@ -10,11 +10,13 @@
 		<![CDATA[
 
 			
+			import flash.utils.setTimeout;
+			
 			import mx.controls.Alert;
 			import mx.events.DynamicEvent;
 			import mx.events.FlexEvent;
 			import mx.managers.PopUpManager;
-			
+				
 			private var process:NativeProcess
 			private var testStr:String=""  
 			
@@ -24,6 +26,10 @@
 			
 			//pageType  1硬质封面软质内页,2全软,3全硬
 			private var pageType:int = 1;
+			//1 mag ,2 flexpaper
+			[Bindable]
+			private var createType:int = 1;
+			
 			
 			private const START_BTN_LABEL:String = "重击一下开始转换!";
 			
@@ -86,8 +92,9 @@
 				//TODO:转换进度显示				
 				//txt.appendText(testStr)
 				//txt.appendText("----------------\n") 
+				trace()
 				this.startBtn.label = process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable)
-				
+				trace(this.startBtn.label)
 			}
 			
 			public function errorOutputDataHandler(event:ProgressEvent):void
@@ -112,38 +119,64 @@
 			
 			private function startConvert():void
 			{
+				trace(this.outPutFolder.isDirectory ,this.outPutFolder.getDirectoryListing().length)	
 				if(this.pdfPatch.text=="" || this.outputPatch.text=="")
 				{
 					Alert.show("还没配置好哦～",'错误')
 					return
 				} 
 				
-				//在输出文件夹下创建assets文件夹
-				this.assetsFolder = this.outPutFolder.resolvePath("assets")
-				this.assetsFolder.createDirectory()
-				
+				if(!this.outPutFolder.isDirectory || this.outPutFolder.getDirectoryListing().length!=0)
+				{
+					Alert.show("输出文件夹必须为空");
+					return;
+				}
 				
 				this.uiEnabled =  false
 				
+				
+			   
+					
+			
+
 				txt.appendText('转换开始，请等一会儿，pdf越复杂等的越久，相信我,没有死机.不要关闭弹出的dos窗口，那样会强制结束：）\n')
-				var file:File = File.applicationDirectory;
-				file = file.resolvePath("pdf2swf/pdf2swf.exe");
+				var pdf2swf:File = File.applicationDirectory;
+				pdf2swf = pdf2swf.resolvePath("pdf2swf/pdf2swf.exe");
 				var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
-				nativeProcessStartupInfo.executable = file;
+				nativeProcessStartupInfo.executable = pdf2swf;
 				//nativeProcessStartupInfo.workingDirectory = File.applicationDirectory;
 				
 				var args:Vector.<String> = new Vector.<String>;
-				args.push("-T9")
-				args.push("-s poly2bitmap")
-				//args.push("-s zoom=18")
+				if(this.createType == 1) //mag
+				{ 
+					//在输出文件夹下创建assets文件夹
+					this.assetsFolder = this.outPutFolder.resolvePath("assets")
+					this.assetsFolder.createDirectory()
+					
+					
+					args.push("-T9")
+					args.push("-s poly2bitmap")				
+					args.push(pdf.nativePath)
+					args.push( '-o')
+					args.push(this.outPutFolder.nativePath+'\\assets\\n%.swf')
+				}
+				else if(this.createType ==2) //flexpaper
+				{
+
+					args.push("-f")
+				    args.push("-T9")				 
+					args.push("-t")
+					args.push("-s storeallcharacters")
+					args.push(pdf.nativePath)
+					args.push( '-o')
+		
+					args.push(this.outPutFolder.nativePath+'\\Paper.swf')
+				}
 				
-				args.push(pdf.nativePath)
-				args.push( '-o')
-				args.push(this.outPutFolder.nativePath+'\\assets\\n%.swf')
+			
 				
-				//args.push("-I")
-				//args.push("-q")
-				
+					
+			    		
 				nativeProcessStartupInfo.arguments =  args 
 				process = new NativeProcess();
 				process.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, onOutputData);
@@ -151,11 +184,22 @@
 				process.addEventListener(Event.STANDARD_OUTPUT_CLOSE,onClose)
 				process.start(nativeProcessStartupInfo);
 			}
-			import flash.utils.setTimeout
+			
 				private function onClose(eo:Event):void
 				{
 					
 					txt.appendText("转换结束！\n")
+						
+					if(this.createType==2)
+					{
+						this.copyToOutFolder("flexpaper\\FlexPaperViewer.html")
+						this.copyToOutFolder("flexpaper\\FlexPaperViewer.swf")
+						this.copyToOutFolder("flexpaper\\js")
+						txt.appendText("转换完成，请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
+						this.reset() 
+						return;	
+					}	
+						
 					this.assetsFolder.addEventListener( FileListEvent.DIRECTORY_LISTING, onDirectoryListing );
 					this.assetsFolder.getDirectoryListingAsync();
 					
@@ -258,12 +302,19 @@
 	
 	<fx:Declarations>
 		<s:RadioButtonGroup id="pageTypeGroup" enabled="{this.uiEnabled}" change="this.pageType = int(this.pageTypeGroup.selectedValue)" />
+		<s:RadioButtonGroup id="createTypeGroup" enabled="{this.uiEnabled}" change="this.createType = int(this.createTypeGroup.selectedValue)" />
 	</fx:Declarations>
 	
 	
 	<s:layout>
 		<s:VerticalLayout paddingBottom="10" paddingLeft="10" paddingTop="10" paddingRight="10"  />
 	</s:layout>
+	
+	<s:HGroup verticalAlign="middle">
+		<s:Label text="生成类型:"/>
+		<s:RadioButton label="杂志(Magazine)" value="1" group="{this.createTypeGroup}" selected="true"/>
+		<s:RadioButton label="文档(FlexPaper)" value="2" group="{this.createTypeGroup}" />
+	</s:HGroup>
 	<s:Label text="选取PDF文件:"/>
 	<s:HGroup width="100%">
 		<s:TextArea id="pdfPatch"  width="85%" height="30"  editable="false" selectable="false"/>
@@ -274,18 +325,18 @@
 		<s:TextArea id="outputPatch"  width="85%" height="30"  editable="false" selectable="false"/>
 		<s:Button enabled="{this.uiEnabled}"   label="浏览" width="15%" height="30" click="browseOutputFodler()" />
 	</s:HGroup>
-	<s:HGroup verticalAlign="middle">
+	<s:HGroup verticalAlign="middle" visible="{this.createType==1}" includeInLayout="{this.createType==1}" >
 		<s:Label text="默认显示宽高(单页):" toolTip="请根据文件单页的宽高比例,和期望屏幕分辨率进行设定." /> 
 		<s:TextInput id="ti_w" enabled="{this.uiEnabled}" text="336" restrict="0-9" width="40"/>
 		<s:Label text="x" />
 		<s:TextInput id="ti_h" enabled="{this.uiEnabled}" text="456" restrict="0-9" width="40"/>
 	</s:HGroup>
-	<s:HGroup verticalAlign="middle">
+	<s:HGroup verticalAlign="middle" visible="{this.createType==1}" includeInLayout="{this.createType==1}">
 		<s:RadioButton label="硬质封面软质内页" value="1" group="{this.pageTypeGroup}" selected="true"/>
 		<s:RadioButton label="全软质" value="2" group="{this.pageTypeGroup}" />
 		<s:RadioButton label="全硬质" value="3" group="{this.pageTypeGroup}" />
 	</s:HGroup>
-	<s:Button label="添加目录" enabled="{this.uiEnabled}" click="popContentsWindow()"/>
+	<s:Button label="添加目录" enabled="{this.uiEnabled}" click="popContentsWindow()" visible="{this.createType==1}" includeInLayout="{this.createType==1}"  />
 	<s:Button  id="startBtn" enabled="{this.uiEnabled}" width="100%" height="30" click="startConvert()" />
 	<s:TextArea  id="txt" width="100%" height="100%" />
 	<s:HGroup width="100%" >
