@@ -16,7 +16,8 @@
 			import mx.events.DynamicEvent;
 			import mx.events.FlexEvent;
 			import mx.managers.PopUpManager;
-				
+			import mx.utils.StringUtil;
+			
 			private var process:NativeProcess
 			private var testStr:String=""  
 			
@@ -92,9 +93,9 @@
 				//TODO:转换进度显示				
 				//txt.appendText(testStr)
 				//txt.appendText("----------------\n") 
-				trace()
-				this.startBtn.label = process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable)
-				trace(this.startBtn.label)
+				
+				this.startBtn.label = StringUtil.trim( process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable) as String);
+				txt.appendText(this.startBtn.label+"\n")
 			}
 			
 			public function errorOutputDataHandler(event:ProgressEvent):void
@@ -103,8 +104,8 @@
 				Alert.show('error')				
 			}
 			
-			
-			
+		 
+				
 			
 			private function onBrowsePDF(eo:Event):void {
 				
@@ -139,7 +140,8 @@
 					
 			
 
-				txt.appendText('转换开始，请等一会儿，pdf越复杂等的越久，相信我,没有死机.不要关闭弹出的dos窗口，那样会强制结束：）\n')
+				txt.appendText('pdf2swf转换开始，请等一会儿，pdf越复杂等的越久，.不要关闭弹出的dos窗口，那样会强制结束：）\n')
+				txt.appendText('pdf2swf log------------------ \n')
 				var pdf2swf:File = File.applicationDirectory;
 				pdf2swf = pdf2swf.resolvePath("pdf2swf/pdf2swf.exe");
 				var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
@@ -187,15 +189,15 @@
 			
 				private function onClose(eo:Event):void
 				{
-					
-					txt.appendText("转换结束！\n")
+					txt.appendText('pdf2swf log------------------ \n')
+					txt.appendText("pdf2swf转换结束！\n")
 						
 					if(this.createType==2)
 					{
-						this.copyToOutFolder("flexpaper\\FlexPaperViewer.html")
+						this.copyToOutFolder("flexpaper\\index.html")
 						this.copyToOutFolder("flexpaper\\FlexPaperViewer.swf")
 						this.copyToOutFolder("flexpaper\\js")
-						txt.appendText("转换完成，请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
+						txt.appendText("转换完成,请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
 						this.reset() 
 						return;	
 					}	
@@ -209,7 +211,7 @@
 				
 				private function onDirectoryListing(eo:FileListEvent):void
 				{
-					txt.appendText("开始写配置文件！\n")
+					//txt.appendText("开始写配置文件！\n")
 					//写xml文件
 					var xml:String = "<root >"+File.lineEnding;
 					xml += "<pageInfo width='"+this.ti_w.text+"' height='"+this.ti_h.text+"' type='"+this.pageType.toString() +"' />"+File.lineEnding;
@@ -237,15 +239,15 @@
 					
 					
 					fileStream.close();  
-					txt.appendText("写配置文件成功！\n")
-					txt.appendText("复制文件！\n")
+					//txt.appendText("写配置文件成功！\n")
+					//txt.appendText("复制文件！\n")
 					//复制mag
 					copyToOutFolder("mag\\index.html");
 					copyToOutFolder("mag\\Magazine.swf");
 					copyToOutFolder("mag\\playerProductInstall.swf");
 					copyToOutFolder("mag\\swfobject.js");
-					txt.appendText("复制文件成功！\n")
-					txt.appendText("转换完成，请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
+					//txt.appendText("复制文件成功！\n")
+					txt.appendText("转换完成,请将输出目录("+this.outPutFolder.nativePath+")上传至服务器查看！\n")
 					this.reset() 
 				}
 				
@@ -293,7 +295,7 @@
 	
 	<fx:Style>
 		@namespace s "library://ns.adobe.com/flex/spark";
-		@namespace mx "library://ns.adobe.com/flex/halo";		
+		@namespace mx "library://ns.adobe.com/flex/mx";		
 		mx|ToolTip { 
 			fontSize: 14;
 		}
